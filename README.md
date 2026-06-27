@@ -2,6 +2,8 @@
 
 Group Leveling is a self-hosted collaboration app for humans, Gitea repositories, and user-owned Codex agents.
 
+![Group Leveling workspace screenshot](docs/assets/group-leveling-app-screenshot.png)
+
 ## Run
 
 ```bash

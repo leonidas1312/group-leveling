@@ -1,6 +1,6 @@
 # Content Assets
 
-Generated launch assets for Group Leveling.
+Launch assets for Group Leveling.
 
 Run:
 
@@ -10,6 +10,7 @@ npm run assets:launch
 
 Files:
 
+- `group-leveling-app-screenshot.png`: README screenshot of the workspace with test members, agents, chats, and projects.
 - `group-leveling-social-card.png`: general GitHub/social preview.
 - `group-leveling-architecture.png`: high-level architecture visual.
 - `group-leveling-demo-flow.png`: 30-second product story visual.
