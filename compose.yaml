@@ -1,0 +1,20 @@
+name: solo-leveling
+
+services:
+  gitea:
+    image: gitea/gitea:latest
+    container_name: solo-leveling-gitea
+    restart: unless-stopped
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      GITEA__server__DOMAIN: ${GITEA_DOMAIN:-localhost}
+      GITEA__server__ROOT_URL: ${PUBLIC_GITEA_BASE_URL:-http://localhost:3001}/
+      GITEA__server__SSH_DOMAIN: ${GITEA_SSH_DOMAIN:-localhost}
+      GITEA__server__SSH_PORT: "2222"
+      GITEA__server__SSH_LISTEN_PORT: "22"
+    ports:
+      - "${GITEA_HTTP_BIND:-0.0.0.0}:3001:3000"
+      - "${GITEA_SSH_BIND:-127.0.0.1}:2222:22"
+    volumes:
+      - ${GITEA_DATA_PATH:-../gitea-data}:/data
