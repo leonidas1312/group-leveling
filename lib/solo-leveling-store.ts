@@ -147,7 +147,7 @@ export async function ensureAgentsForUsers(users: GiteaUser[]) {
   }
 
   const chats = state.chats.map((chat) => normalizeChat(chat, visibleUsernames));
-  return (await writeSoloLevelingState({ ...state, agents, chats })).agents;
+  return (await writeSoloLevelingState({ ...state, users: visibleUsers, agents, chats })).agents;
 }
 
 export async function createPersistentChat(input: {

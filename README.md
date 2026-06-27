@@ -28,4 +28,4 @@ SOLO_LEVELING_NETWORK=tailscale npm run self-host
 - [Self-hosting guide](SELF_HOSTING.md): host setup, environment variables, Gitea, Codex, Tailscale, persistence, verification.
 - [Invite guide](INVITE_GUIDE.md): invite flow, member setup, Tailscale access, ChatGPT/Codex auth, first team test.
 - [Architecture](ARCHITECTURE.md): system design, diagrams, data flow, agent ownership, workflow execution.
-- [Dissemination strategy](DISSEMINATION.md): launch positioning, target audiences, channel plan, metrics, and public launch copy.
+- [Content assets](docs/assets/README.md): generated launch images and short copy blocks.

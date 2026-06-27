@@ -168,6 +168,14 @@ http://<tailscale-ip>:3000
 http://<tailscale-ip>:3001
 ```
 
+If teammates are not online yet, run the offline team smoke test against the running app:
+
+```bash
+GROUP_LEVELING_BASE_URL=http://<tailscale-ip>:3000 npm run smoke:offline-team
+```
+
+This creates temporary test teammates, verifies accepted-member visibility, creates a shared chat, checks leave/delete permissions, verifies new teammates do not inherit the host's Codex auth, deletes the smoke chat, and removes the temporary Gitea users when a host token is available. It does not complete real ChatGPT device login for those teammates; each real teammate still needs to connect ChatGPT/Codex in their own browser session.
+
 ## References
 
 - Tailscale install: https://tailscale.com/kb/1017/install

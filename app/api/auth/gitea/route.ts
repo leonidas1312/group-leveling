@@ -19,9 +19,8 @@ export async function POST(request: Request) {
       user = await upsertPersistentUser({ username: body.username, fullName: body.username });
     }
 
-    if (!isGiteaConfigured() || user.id.startsWith("local-")) {
-      await ensureAgentsForUsers(await listPersistentUsers());
-    }
+    await upsertPersistentUser(user);
+    await ensureAgentsForUsers(await listPersistentUsers());
     return NextResponse.json({ user });
   } catch (error) {
     return NextResponse.json(

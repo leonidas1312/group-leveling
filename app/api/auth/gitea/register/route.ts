@@ -32,9 +32,8 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!isGiteaConfigured() || user.id.startsWith("local-")) {
-      await ensureAgentsForUsers(await listPersistentUsers());
-    }
+    await upsertPersistentUser(user);
+    await ensureAgentsForUsers(await listPersistentUsers());
     return NextResponse.json({ user });
   } catch (error) {
     return NextResponse.json(

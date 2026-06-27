@@ -12,6 +12,8 @@
     "invite": "node scripts/invite.mjs",
     "dev:all": "npm run gitea:up && (npm run codex-server:exec & npm run dev)",
     "dev": "next dev -H ${SOLO_LEVELING_BIND_HOST:-0.0.0.0}",
+    "assets:launch": "node scripts/generate-content-assets.mjs",
+    "smoke:offline-team": "node scripts/offline-team-smoke.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
