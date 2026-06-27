@@ -1,95 +1,98 @@
 # Architecture
 
-Group Leveling is a self-hosted human and agent collaboration platform. The host provides the infrastructure: web app, Gitea, workflow runner, storage, and network access. Each teammate brings their own workspace profile, their own ChatGPT/Codex auth, and their own agents.
+Group Leveling is a self-hosted workspace for human-agent collaboration. The host machine provides the app, Gitea, workflow execution, state, and private network access. Teammates provide their own workspace identity, ChatGPT/Codex auth, and agents.
 
-The core idea is simple:
+## Product Model
 
-- Humans chat in shared rooms.
-- Humans mention users and agents with `@`.
-- Humans mention projects with `#owner/repo`.
-- Agents can talk casually in chat.
-- Agents only run repository workflows when the message asks for project/code work.
-- Repository work happens in Gitea pull requests, not directly in chat.
+- Chat is the coordination layer.
+- Gitea is the project and pull request layer.
+- Codex is the execution layer.
+- Tailscale is the private access layer.
+- `@` routes attention to people and agents.
+- `#owner/repo` routes work to projects.
+- Repository changes land through branches and pull requests.
 
 ## Technology Stack
 
-| Area | Technology | Purpose |
+| Area | Technology | Role |
 | --- | --- | --- |
-| Web app | Next.js App Router, React, TypeScript | Main UI, API routes, settings, invite, workflow monitor |
-| UI | Tailwind CSS, shadcn-style local components, lucide icons | Application shell and controls |
-| Repository host | Gitea in Docker Compose | Users, repositories, pull requests, project links |
-| Agent runner | Local Codex CLI through `codex exec` | Executes project work in cloned repositories |
-| Workflow service | `scripts/codex-workflow-server.mjs` | Isolates long-running Codex jobs from Next.js |
-| Persistence | File-backed JSON state plus Gitea data volume | Chats, users, agents, projects, workflow history |
-| Private networking | Tailscale | Private team access without exposing public ports |
+| Web app | Next.js App Router, React, TypeScript | Workspace UI, API routes, invite, settings, workflow monitor |
+| UI | Tailwind CSS, local shadcn-style components, lucide icons | Application shell and controls |
+| Repository host | Gitea in Docker Compose | Users, repositories, branches, pull requests |
+| Agent runtime | Local Codex CLI through `codex exec` | Project work inside cloned repositories |
+| Workflow service | `scripts/codex-workflow-server.mjs` | Long-running agent jobs outside the Next.js request lifecycle |
+| Persistence | JSON state file plus Gitea volume | Chats, users, agents, projects, workflow history |
+| Private network | Tailscale | Team access to the host without public routing |
 
-## High-Level System
+## System View
 
 ```mermaid
 flowchart LR
   Host["Host machine"] --> App["Next.js app :3000"]
   Host --> Gitea["Gitea :3001"]
-  Host --> Workflow["Codex workflow server :8787"]
-  Host --> Store["Host data dir ~/.solo-leveling"]
+  Host --> Runner["Codex workflow server :8787"]
+  Host --> Data["Host data dir"]
 
-  Users["Teammates"] -->|Browser over LAN or Tailscale| App
+  Users["Teammates"] -->|Browser over Tailscale or LAN| App
   App -->|Gitea API| Gitea
-  App -->|Workflow API| Workflow
-  Workflow -->|git clone/push| Gitea
-  Workflow -->|CODEX_HOME per user| Codex[Codex CLI]
-  Codex -->|ChatGPT/Codex auth| OpenAI[OpenAI auth and usage]
-  Store --> State["state.json"]
-  Store --> Runs["workflow runs"]
-  Store --> Profiles["codex-users/*"]
+  App -->|Workflow API| Runner
+  Runner -->|git clone, branch, push| Gitea
+  Runner -->|CODEX_HOME per owner| Codex["Codex CLI"]
+  Codex --> OpenAI["ChatGPT/Codex auth and usage"]
+  Data --> State["state.json"]
+  Data --> Runs["workflow runs"]
+  Data --> Homes["codex-users/*"]
 ```
 
-## Runtime Services
+## Runtime Components
 
 ```mermaid
 flowchart TB
   subgraph Browser
     UI["Workspace UI"]
     Invite["Invite page"]
-    Settings["Settings and analytics"]
+    Settings["Settings"]
     Monitor["Workflow monitor"]
   end
 
-  subgraph Next[Next.js server]
-    APIState["/api/solo-leveling/state"]
-    APIChats["/api/solo-leveling/chats"]
-    APIAgents["/api/solo-leveling/agents"]
-    APIProjects["/api/gitea/projects"]
-    APICodex["/api/codex/*"]
-    APIWorkflows["/api/agent/workflows"]
+  subgraph Next["Next.js server"]
+    StateAPI["/api/solo-leveling/state"]
+    ChatAPI["/api/solo-leveling/chats"]
+    AgentAPI["/api/solo-leveling/agents"]
+    GiteaAPI["/api/gitea/*"]
+    CodexAPI["/api/codex/*"]
+    WorkflowAPI["/api/agent/workflows/*"]
   end
 
-  subgraph LocalHost[Host infrastructure]
+  subgraph Host["Host infrastructure"]
     Store[(state.json)]
-    Gitea[(Gitea)]
-    Runner["Codex workflow server"]
-    CodexHome[(per-user CODEX_HOME)]
+    Repo[(Gitea)]
+    Runner["Workflow server"]
+    Homes[(per-user CODEX_HOME)]
   end
 
-  UI --> APIState
-  UI --> APIChats
-  UI --> APIAgents
-  UI --> APIProjects
-  Settings --> APICodex
-  Monitor --> APIWorkflows
+  UI --> StateAPI
+  UI --> ChatAPI
+  UI --> AgentAPI
+  UI --> GiteaAPI
+  UI --> WorkflowAPI
+  Invite --> StateAPI
+  Settings --> CodexAPI
+  Monitor --> WorkflowAPI
 
-  APIState --> Store
-  APIChats --> Store
-  APIAgents --> Store
-  APIProjects --> Gitea
-  APIWorkflows --> Runner
-  APICodex --> CodexHome
-  Runner --> Gitea
-  Runner --> CodexHome
+  StateAPI --> Store
+  ChatAPI --> Store
+  AgentAPI --> Store
+  GiteaAPI --> Repo
+  WorkflowAPI --> Runner
+  CodexAPI --> Homes
+  Runner --> Repo
+  Runner --> Homes
 ```
 
 ## Data Model
 
-The app keeps a small persistent state file for collaboration data that is not owned by Gitea.
+The app stores collaboration state in a JSON file and repository state in Gitea.
 
 ```mermaid
 erDiagram
@@ -139,70 +142,61 @@ erDiagram
   }
 ```
 
-Primary TypeScript types live in `lib/demo-data.ts`. Persistent state is normalized through `lib/solo-leveling-store.ts`.
+Primary TypeScript types live in `lib/demo-data.ts`. State normalization lives in `lib/solo-leveling-store.ts`.
 
-## How A Teammate Brings An Agent
+## Agent Ownership
 
-Each teammate creates an app profile, connects their own ChatGPT/Codex identity, then creates one or more agents owned by that profile.
+Each teammate creates agents under their own profile. The owner determines which Codex profile is used for execution.
 
 ```mermaid
 sequenceDiagram
-  participant User as Teammate browser
-  participant App as Next.js app
+  participant User as Teammate
+  participant App as Group Leveling
   participant CodexAPI as Codex auth API
   participant Host as Host filesystem
   participant AgentAPI as Agent API
 
   User->>App: Open invite URL
-  App-->>User: Workspace entry screen
   User->>App: Create or sign into profile
   User->>CodexAPI: Start ChatGPT/Codex device login
-  CodexAPI->>Host: Create per-user CODEX_HOME
-  CodexAPI-->>User: OpenAI device auth URL and code
-  User->>CodexAPI: Poll login session
-  CodexAPI->>Host: Detect auth.json for this user
+  CodexAPI->>Host: Create CODEX_HOME for username
+  CodexAPI-->>User: Device auth URL and code
+  CodexAPI->>Host: Store auth.json in user's profile
   User->>AgentAPI: Create agent with name, role, instructions
-  AgentAPI->>Host: Store agent ownerUsername and instructions
-  App-->>User: Agent appears in chat autocomplete as @agent-name
+  AgentAPI->>Host: Store agent ownerUsername
+  App-->>User: Agent appears in autocomplete as @agent-name
 ```
 
-Important ownership rule:
+Ownership rule:
 
 ```text
-agent.ownerUsername -> user's CODEX_HOME -> user's ChatGPT/Codex auth
+agent.ownerUsername -> CODEX_USER_HOME_ROOT/<username> -> ChatGPT/Codex auth
 ```
 
-The host provides compute and repositories. The teammate provides the Codex identity used by agents they own.
+The host supplies compute and repositories. The teammate supplies the identity and usage plan for agents they own.
 
-## Chat And Mention Flow
+## Chat Routing
 
-The chat composer treats symbols as routing hints:
+The composer treats symbols as structured routing hints inside normal chat.
 
-- `@username` mentions a human user.
+- `@username` mentions a human.
 - `@agent-name` mentions an agent.
 - `#owner/repo` references a Gitea project.
 
 ```mermaid
 flowchart TD
-  Message["User sends chat message"] --> Parse["Parse @ mentions and # project refs"]
-  Parse --> Human{Mentions human?}
-  Parse --> Agent{Mentions agent?}
-  Parse --> Project{Mentions project or asks code work?}
-
-  Human -->|yes| DisplayHuman["Render user mention in chat"]
-  Agent -->|no| StoreOnly["Store normal chat message"]
-  Agent -->|yes| WorkIntent{Repository work intent?}
-  Project --> WorkIntent
-
-  WorkIntent -->|no| LocalReply["Agent replies conversationally"]
-  WorkIntent -->|yes| CheckAuth["Check owner Codex auth"]
-  CheckAuth --> CheckGitea["Check Gitea/project availability"]
-  CheckGitea --> StartWorkflow["Start Codex workflow"]
+  Message["User sends message"] --> Parse["Parse @ mentions and # project refs"]
+  Parse --> UserMention["Render human mentions"]
+  Parse --> AgentMention{Agent mention?}
+  AgentMention -->|chat| Conversational["Agent replies in chat"]
+  AgentMention -->|project work| Auth["Load owner Codex profile"]
+  Auth --> Gitea["Resolve Gitea project"]
+  Gitea --> Workflow["Start workflow"]
 ```
 
-This keeps chat and projects decoupled. Creating a project does not create a chat. Creating a chat does not create a project. A chat can reference any project naturally by mentioning `#owner/repo`.
+Chat creation and project creation are independent operations. A chat can reference any project by mentioning `#owner/repo`.
 
-## Agent Workflow Flow
+## Workflow Execution
 
 When a message asks an agent to work in a project, the app starts a workflow through the local workflow server.
 
@@ -210,105 +204,106 @@ When a message asks an agent to work in a project, the app starts a workflow thr
 sequenceDiagram
   participant Chat as Chat UI
   participant App as Next.js API
-  participant Runner as Codex workflow server
+  participant Runner as Workflow server
   participant Gitea as Gitea
   participant Codex as Codex CLI
-  participant State as Workflow status
+  participant State as Workflow state
 
   Chat->>App: POST /api/agent/workflows
-  App->>Gitea: Verify repository exists
-  App->>Runner: POST /workflows with prompt, repo, agent owner
+  App->>Gitea: Resolve repository
+  App->>Runner: Send prompt, repo, agent owner
   Runner->>State: Create wf-* status
   Runner->>Gitea: Clone repository
-  Runner->>Codex: codex exec with user's CODEX_HOME
-  Codex-->>Runner: JSONL trace and final message
-  Runner->>Gitea: Commit, push branch
-  Runner->>Gitea: Create pull request
-  Runner->>State: Save sanitized summary and PR URL
+  Runner->>Codex: codex exec with owner CODEX_HOME
+  Codex-->>Runner: Trace and final message
+  Runner->>Gitea: Commit and push branch
+  Runner->>Gitea: Open pull request
+  Runner->>State: Save summary and PR URL
   Chat->>App: Poll workflow status
   App->>Runner: GET /workflows/:id
-  App-->>Chat: Completed/failed result message
+  App-->>Chat: Result message
 ```
 
-The workflow server sanitizes agent output before user-facing surfaces see it:
+Public workflow text is sanitized before it reaches chat, monitors, and pull request bodies:
 
-- Host runtime paths are removed.
-- Files inside cloned repos become Gitea branch file URLs when possible.
-- PR URLs are normalized to `PUBLIC_GITEA_BASE_URL`.
+- Host runtime paths are rewritten.
+- Repository files become repo-relative paths or Gitea links.
+- Pull request URLs use `PUBLIC_GITEA_BASE_URL`.
 
 ## Deployment Modes
 
 ```mermaid
 flowchart LR
-  subgraph LAN[LAN mode]
-    LANUser["Friend on same network"] --> LANApp["http://host-lan-ip:3000"]
-    LANUser --> LANGitea["http://host-lan-ip:3001"]
+  subgraph Local["Local development"]
+    LocalUser["Host browser"] --> LocalApp["localhost:3000"]
   end
 
-  subgraph Tail[Tailscale mode]
-    TailUser["Shared Tailscale user"] --> TailApp["http://100.x.y.z:3000"]
-    TailUser --> TailGitea["http://100.x.y.z:3001"]
+  subgraph Tail["Tailscale team"]
+    TailUser["Teammate browser"] --> TailApp["100.x.y.z:3000"]
+    TailUser --> TailGitea["100.x.y.z:3001"]
   end
 
-  subgraph Public[Public internet]
-    PublicUser["Browser"] --> Proxy["HTTPS proxy or tunnel"]
+  subgraph HTTPS["HTTPS deployment"]
+    PublicUser["Browser"] --> Proxy["Reverse proxy"]
     Proxy --> App["App :3000"]
     Proxy --> Gitea["Gitea :3001"]
   end
 ```
 
-Recommended order:
+Recommended progression:
 
 1. Localhost for development.
-2. Tailscale for private team testing.
-3. HTTPS reverse proxy only when the product is ready for broader exposure.
+2. Tailscale for trusted team operation.
+3. HTTPS reverse proxy with production auth controls for broader deployment.
 
-The workflow server listens on localhost by default. Users do not talk to it directly; the Next.js app does.
+The workflow server remains behind the app. Browsers interact with Next.js and Gitea.
 
-## Self-Host Boot Flow
+## Boot Flow
 
 ```mermaid
 flowchart TD
-  Start["npm run self-host"] --> Env["Read .env.local and process env"]
-  Env --> Network{SOLO_LEVELING_NETWORK=tailscale?}
-  Network -->|yes| Tailscale["tailscale ip -4"]
-  Network -->|no| LAN["Detect LAN IPv4"]
-  Tailscale --> URLs["Compute app and Gitea public URLs"]
-  LAN --> URLs
-  URLs --> Compose["docker compose up -d gitea"]
-  Compose --> Runner["npm run codex-server:exec"]
-  Runner --> Next["npm run dev"]
-  Next --> Print["Print public URL and invite URL"]
+  Start["npm run self-host"] --> Env["Read environment"]
+  Env --> Network{Tailscale mode?}
+  Network -->|yes| TailIP["Read tailscale ip -4"]
+  Network -->|no| LANIP["Read LAN IPv4"]
+  TailIP --> URLs["Compute app and Gitea URLs"]
+  LANIP --> URLs
+  URLs --> Compose["Start Gitea"]
+  Compose --> Runner["Start workflow server"]
+  Runner --> Next["Start Next.js app"]
+  Next --> Print["Print app URL and invite URL"]
 ```
 
-Useful preview command:
+Preview commands:
 
 ```bash
 npm run self-host -- --print-config
 SOLO_LEVELING_NETWORK=tailscale npm run self-host -- --print-config
 ```
 
-## Important Environment Variables
+## Environment Variables
 
-| Variable | Purpose |
+The `SOLO_LEVELING` prefix is retained for runtime compatibility.
+
+| Variable | Role |
 | --- | --- |
 | `SOLO_LEVELING_NETWORK` | `lan` or `tailscale` |
 | `SOLO_LEVELING_PUBLIC_URL` | Browser URL for the web app |
-| `SOLO_LEVELING_BIND_HOST` | Interface the web app binds to |
-| `SOLO_LEVELING_DATA_DIR` | Host data root, defaults to `~/.solo-leveling` |
-| `GITEA_BASE_URL` | Internal URL used by server-side API calls and git clone |
-| `PUBLIC_GITEA_BASE_URL` | Browser URL used in links sent to users |
+| `SOLO_LEVELING_BIND_HOST` | Interface used by the web app |
+| `SOLO_LEVELING_DATA_DIR` | Host data root |
+| `GITEA_BASE_URL` | Server-side Gitea URL |
+| `PUBLIC_GITEA_BASE_URL` | Browser-facing Gitea URL |
 | `GITEA_TOKEN` | Admin/API token for Gitea operations |
-| `GITEA_DEFAULT_OWNER` | Default Gitea user/org for new projects |
+| `GITEA_DEFAULT_OWNER` | Default Gitea user or org for new projects |
 | `CODEX_SERVER_URL` | Next.js to workflow-server URL |
-| `CODEX_USER_HOME_ROOT` | Optional override for per-user Codex profiles |
-| `CODEX_WORKFLOW_RUNS_DIR` | Optional override for workflow run directories |
+| `CODEX_USER_HOME_ROOT` | Per-user Codex profile root |
+| `CODEX_WORKFLOW_RUNS_DIR` | Workflow run directory |
 
-## Security Boundaries
+## Security Boundary
 
 ```mermaid
 flowchart TB
-  subgraph TrustedHost[Trusted host machine]
+  subgraph Host["Trusted host machine"]
     App["Next.js app"]
     Runner["Workflow server"]
     State[(state and workflow files)]
@@ -316,56 +311,57 @@ flowchart TB
     Token["Gitea token"]
   end
 
-  subgraph Teammate[Teammate]
+  subgraph Teammate["Teammate"]
     Browser["Browser session"]
-    ChatGPT["Own ChatGPT/Codex auth"]
+    Auth["Own ChatGPT/Codex auth"]
   end
 
   Browser --> App
   App --> Runner
   Runner --> Homes
-  Homes --> ChatGPT
+  Homes --> Auth
   App --> Token
 ```
 
-What the app currently protects:
+Current operating boundary:
 
-- Public responses do not expose host workflow paths.
-- Each user's agent runs with that user's `CODEX_HOME`.
-- Gitea browser URLs are normalized to public/Tailscale URLs.
-- Project and chat objects are decoupled.
+- Trusted teammates.
+- Private network access through Tailscale or LAN.
+- Per-user Codex profiles for agent execution.
+- Gitea as the source of truth for repositories and pull requests.
+- Public-facing workflow text sanitized by the app.
 
-What still needs hardening before public internet exposure:
+Public HTTPS deployment adds:
 
-- Signed, expiring, one-use invite tokens.
-- Explicit accepted-member allowlist enforced server-side.
-- Strong session/auth cookies instead of local profile selection.
-- Rate limits for workflow starts and account creation.
-- Permission model for project access and agent execution.
-- Optional container sandboxing per workflow.
+- Signed invite tokens.
+- Server-enforced member allowlist.
+- Session cookies with host/member roles.
+- Workflow rate limits.
+- Project access rules.
+- Optional per-workflow container isolation.
 
 ## Repository Map
 
 | Path | Role |
 | --- | --- |
-| `app/page.tsx` | Main chat/workspace UI |
-| `app/invite/page.tsx` | Invite landing page |
-| `app/settings/page.tsx` | Analytics/settings overview |
+| `app/page.tsx` | Main workspace UI |
+| `app/invite/page.tsx` | Invite entry page |
+| `app/settings/page.tsx` | Settings and analytics |
 | `app/settings/chatgpt/page.tsx` | Per-user Codex device login |
-| `app/workflows/[id]/workflow-monitor.tsx` | Workflow status monitor |
+| `app/workflows/[id]/workflow-monitor.tsx` | Workflow monitor |
 | `app/api/solo-leveling/*` | Chat, message, state, agent APIs |
-| `app/api/gitea/*` | Project, user, PR, status APIs |
+| `app/api/gitea/*` | Project, user, pull request, status APIs |
 | `app/api/codex/*` | Codex status and device-login APIs |
 | `app/api/agent/workflows/*` | Next.js adapter to workflow server |
-| `lib/solo-leveling-store.ts` | File-backed app state and normalization |
+| `lib/solo-leveling-store.ts` | File-backed collaboration state |
 | `lib/gitea.ts` | Gitea API client and URL normalization |
 | `lib/codex-auth.ts` | Per-user Codex profile helpers |
 | `lib/codex.ts` | Workflow server client |
-| `scripts/self-host.mjs` | One-command host launcher |
+| `scripts/self-host.mjs` | Host launcher |
 | `scripts/invite.mjs` | Invite URL generator |
-| `scripts/codex-workflow-server.mjs` | Long-running Codex workflow service |
+| `scripts/codex-workflow-server.mjs` | Codex workflow service |
 | `compose.yaml` | Gitea service definition |
 
-## Current Product Shape
+## Summary
 
-Group Leveling is currently a self-hosted team workspace for trusted users. The host owns infrastructure. Teammates own identities and agents. Gitea owns repositories and pull requests. Codex does work through the correct user's ChatGPT/Codex auth. Chat is the coordination layer, not the project boundary.
+Group Leveling separates collaboration into three durable systems: chat for coordination, Gitea for repository truth, and Codex for execution. The host owns infrastructure. Teammates own identity, agents, and ChatGPT/Codex usage. The project boundary is a Gitea repository; the coordination boundary is a chat.

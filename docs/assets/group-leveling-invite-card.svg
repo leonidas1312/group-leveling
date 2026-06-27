@@ -38,9 +38,9 @@
   </g>
 
   <g>
-    <rect x="86" y="535" width="312" height="44" rx="8" fill="#ffffff" stroke="#dce3e7"/>
+    <rect x="86" y="535" width="262" height="44" rx="8" fill="#ffffff" stroke="#dce3e7"/>
     <rect x="100" y="549" width="16" height="16" rx="4" fill="#246bfe"/>
-    <text x="128" y="564" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16" font-weight="720" fill="#182025" letter-spacing="0">No public internet required</text>
+    <text x="128" y="564" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16" font-weight="720" fill="#182025" letter-spacing="0">Private network access</text>
   </g>
 
   <g>

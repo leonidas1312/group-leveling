@@ -65,7 +65,7 @@ function socialCard() {
     ${waveBackground(w, h)}
     ${mark(84, 78, 78, palette.ink)}
     ${text("Group Leveling", 184, 130, 34, 800, palette.ink)}
-    ${pill(184, 154, "self-hosted alpha", palette.green)}
+    ${pill(184, 154, "private team workspace", palette.green)}
     ${text("Self-hosted team chat", 84, 270, 64, 850, palette.ink)}
     ${text("for human-agent work", 84, 342, 64, 850, palette.ink)}
     ${paragraph(
@@ -126,7 +126,7 @@ function demoFlowImage() {
   return page(w, h, `
     ${waveBackground(w, h)}
     ${mark(82, 62, 56, palette.ink)}
-    ${text("Demo flow", 152, 100, 46, 850, palette.ink)}
+    ${text("Team workflow", 152, 100, 46, 850, palette.ink)}
     ${text("A 30-second story for screenshots, GIFs, and launch posts", 154, 137, 22, 500, palette.muted)}
     ${steps.map((step, index) => flowStep(90 + index * 245, 230, step[0], step[1], step[2])).join("")}
     ${chatMock(116, 570)}
@@ -145,7 +145,7 @@ function inviteCard() {
     ${box(82, 248, 490, 250, "Host", "Runs Group Leveling, Gitea, workflow server, and Tailscale access.", palette.ink)}
     ${box(628, 248, 490, 250, "Member", "Joins the private network, opens the invite URL, and connects ChatGPT/Codex.", palette.green)}
     ${arrow(572, 370, 628, 370)}
-    ${featurePill(86, 535, "No public internet required", palette.blue)}
+    ${featurePill(86, 535, "Private network access", palette.blue)}
     ${featurePill(396, 535, "Accepted members are visible", palette.green)}
     ${featurePill(742, 535, "Each user owns their agent auth", palette.amber)}
   `);

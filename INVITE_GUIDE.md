@@ -1,79 +1,85 @@
 # Invite Guide
 
-This guide is for inviting teammates into a self-hosted Group Leveling workspace.
+This guide covers teammate onboarding for a self-hosted Group Leveling workspace.
 
-## Recommended Flow
+## Flow
 
-1. Host starts Group Leveling.
-2. Host verifies app and Gitea URLs are reachable.
-3. Host invites teammates to the private network if using Tailscale.
-4. Host sends the Group Leveling invite URL.
-5. Each teammate creates or signs into their workspace profile.
-6. Each teammate connects their own ChatGPT/Codex account.
-7. Each teammate creates an agent.
-8. The team tests one shared chat and one project workflow.
+1. Start Group Leveling on the host.
+2. Confirm the app and Gitea URLs use an address teammates can reach.
+3. Give teammates Tailscale access to the host machine or tailnet.
+4. Send the Group Leveling invite URL.
+5. Teammates create or sign into a workspace profile.
+6. Teammates connect their own ChatGPT/Codex account.
+7. Teammates create agents they own.
+8. The team runs one shared chat and one Gitea pull request workflow.
 
-## Host: Generate Invite URL
+## Generate Invite URL
 
-From the host machine:
+From the host:
 
 ```bash
 npm run invite -- --host your-name
 ```
 
-For an explicit URL:
+With an explicit app URL:
 
 ```bash
 npm run invite -- --host your-name --url http://100.x.y.z:3000
 ```
 
-For Tailscale mode:
+In Tailscale mode:
 
 ```bash
 SOLO_LEVELING_NETWORK=tailscale npm run invite -- --host your-name
 ```
 
-The output should look like:
+Expected shape:
 
 ```text
 http://100.x.y.z:3000/invite?host=your-name
 ```
 
-Do not send an invite URL that starts with `http://localhost`. That only works on the host machine.
+Use the same host address teammates use in their browser. For Tailscale, this is the Tailscale IP or MagicDNS hostname.
 
-## Host: Invite Through Tailscale
+## Invite Through Tailscale
 
-Use one of these models:
+Choose one Tailscale access model:
 
-- Same tailnet: invite your teammates to your Tailscale network.
-- Machine sharing: share only the host machine with each teammate.
+- Same tailnet: teammates join the host's tailnet.
+- Machine sharing: teammates receive access to only the host machine.
 
-Machine sharing is the cleaner test setup because teammates can reach this one host without joining everything else in your tailnet.
+Machine sharing is a focused first-team setup because teammates reach the Group Leveling host without inheriting access to the rest of the tailnet.
 
 Host checklist:
 
-1. Install and authenticate Tailscale on the host.
-2. Start Group Leveling in Tailscale mode:
+1. Install Tailscale.
+2. Authenticate the host:
+
+```bash
+sudo tailscale up
+```
+
+3. Start Group Leveling:
 
 ```bash
 SOLO_LEVELING_NETWORK=tailscale npm run self-host
 ```
 
-3. Copy the printed invite URL.
-4. In Tailscale admin, share the host machine or invite teammates to the tailnet.
-5. Send teammates both the Tailscale invite/share and the Group Leveling invite URL.
+4. Copy the printed invite URL.
+5. Share the host machine or invite teammates to the tailnet.
+6. Send teammates both the Tailscale invite/share and the Group Leveling invite URL.
 
-## Teammate: Join
+## Teammate Join
 
 1. Install Tailscale.
-2. Accept the tailnet invite or shared-machine invite.
-3. Confirm the host is reachable:
+2. Accept the tailnet or shared-machine invite.
+3. Confirm the host appears:
 
 ```bash
 tailscale status
 ```
 
-4. Open the Group Leveling invite URL in a browser:
+4. Open the Group Leveling invite URL:
 
 ```text
 http://100.x.y.z:3000/invite?host=your-name
@@ -82,40 +88,40 @@ http://100.x.y.z:3000/invite?host=your-name
 5. Create or enter a workspace username.
 6. Open the app.
 
-## Teammate: Connect ChatGPT
+## Connect ChatGPT/Codex
 
-Each teammate uses their own ChatGPT/Codex account.
+Each teammate connects their own ChatGPT/Codex account.
 
 1. Open the top-right user icon.
 2. Open ChatGPT connection.
-3. Click connect.
+3. Start the connection.
 4. Open the displayed OpenAI device-auth URL.
 5. Enter the code.
-6. Return to Group Leveling and confirm the status is connected.
+6. Return to Group Leveling and confirm the connected state.
 
-Agents owned by that teammate will run with that teammate's Codex profile on the host.
+Agents owned by that teammate run with that teammate's Codex profile on the host.
 
-## Teammate: Create Agent
+## Create Agent
 
 1. Click `+ New agent`.
 2. Enter a name.
 3. Enter a role.
-4. Add instructions if needed.
+4. Add instructions when useful.
 5. Mention the agent in chat with `@agent-name`.
 
-Casual chat should work without starting a workflow. Repository work should start only when the message asks for code/project work or mentions a project with `#owner/repo`.
+Agents can answer conversationally in chat. Repository workflows start when a message asks for code/project work or references a project with `#owner/repo`.
 
 ## Team Test
 
-Use this order:
+Use this sequence for the first team check:
 
 1. Host creates a project.
 2. Host creates a shared chat.
-3. Host adds at least one teammate to the chat.
-4. Teammate sends a plain message without mentioning an agent.
+3. Host adds a teammate to the chat.
+4. Teammate sends a plain message.
 5. Teammate mentions another user with `@username`.
-6. Teammate mentions an agent with a casual message.
-7. Teammate asks the agent to work in a project:
+6. Teammate mentions an agent with a conversational message.
+7. Teammate asks an agent to work in a project:
 
 ```text
 @agent-name update the README with setup instructions in #owner/repo
@@ -124,32 +130,32 @@ Use this order:
 Expected result:
 
 - Chat stays readable.
-- Agent starts a workflow only for project/code work.
-- Workflow monitor opens from the chat.
-- Pull request link opens in Gitea through the Tailscale or public Gitea URL.
-- No chat, monitor, or pull request text exposes host paths like `/home/.../.solo-leveling/workflows/...`.
+- Mentions render with distinct styling.
+- The workflow monitor opens from the chat.
+- The pull request opens in Gitea through the Tailscale or LAN URL.
+- Workflow output uses Gitea links and repository-relative paths.
 
-## Troubleshooting
+## Checks
 
-If teammates cannot open the invite:
+Invite reachability:
 
-- Check that the host app is running.
-- Check that the URL does not use `localhost`.
-- Check that Tailscale is connected on both machines.
-- Check that the host was shared with the teammate or both users are in the same tailnet.
-- Check that `SOLO_LEVELING_PUBLIC_URL` points to the same host the teammate can reach.
+- Host app is running.
+- Invite URL uses the host's Tailscale or LAN address.
+- Tailscale is connected on host and teammate machines.
+- The host machine is shared or both users are in the same tailnet.
+- `SOLO_LEVELING_PUBLIC_URL` matches the reachable app URL.
 
-If Gitea links open on the host but not for teammates:
+Gitea link reachability:
 
-- Set `PUBLIC_GITEA_BASE_URL=http://<tailscale-ip>:3001`.
-- Restart `npm run self-host`.
-- Create a new workflow or reopen an existing workflow monitor.
+- `PUBLIC_GITEA_BASE_URL=http://<tailscale-ip>:3001`
+- Group Leveling restarted after URL changes.
+- New workflows and project links use the same public Gitea base URL.
 
-If ChatGPT connection is missing:
+ChatGPT/Codex status:
 
-- Each teammate must connect their own ChatGPT/Codex account.
-- The host's ChatGPT auth is not reused for other users.
-- The settings page should show `connected` for that teammate.
+- Each teammate connects ChatGPT/Codex from their own browser session.
+- Agent ownership maps to that teammate's Codex profile.
+- Settings shows the connected state for that teammate.
 
 ## References
 
