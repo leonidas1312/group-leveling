@@ -134,6 +134,15 @@ The workflow server launches Codex with the owning user's dedicated `CODEX_HOME`
 agent.ownerUsername -> CODEX_USER_HOME_ROOT/<username> -> auth.json
 ```
 
+Before login or execution, Group Leveling creates that profile directory with
+owner-only permissions, writes `cli_auth_credentials_store = "file"` to its
+`config.toml`, and starts Codex with a small allowlisted environment. Host-level
+Codex/OpenAI credentials such as `CODEX_API_KEY`, `CODEX_ACCESS_TOKEN`, and
+`OPENAI_API_KEY` are not passed to the Codex child process.
+
+Workflow requests derive the Codex user from the stored agent owner on the server
+instead of trusting a browser-supplied username.
+
 The host provides compute and repositories. The teammate provides the Codex identity used by agents they own.
 
 ## Projects
