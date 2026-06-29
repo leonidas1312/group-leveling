@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { access, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { constants, existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
@@ -16,6 +16,39 @@ const codexBin = process.env.CODEX_BIN ?? "codex";
 const legacyCodexHomeRoot = resolve(process.cwd(), ".codex-users");
 const codexHomeRoot = process.env.CODEX_USER_HOME_ROOT ?? (existsSync(legacyCodexHomeRoot) ? legacyCodexHomeRoot : resolve(dataDir, "codex-users"));
 const runCodexExec = process.env.RUN_CODEX_EXEC === "1";
+const codexCredentialStoreSetting = `cli_auth_credentials_store = "file"`;
+const codexChildEnvAllowlist = [
+  "PATH",
+  "PATHEXT",
+  "SystemRoot",
+  "WINDIR",
+  "ComSpec",
+  "TMPDIR",
+  "TEMP",
+  "TMP",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "LC_MESSAGES",
+  "TERM",
+  "COLORTERM",
+  "NO_COLOR",
+  "FORCE_COLOR",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "NO_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+  "no_proxy",
+  "SSL_CERT_FILE",
+  "SSL_CERT_DIR",
+  "REQUESTS_CA_BUNDLE",
+  "NODE_EXTRA_CA_CERTS",
+  "CODEX_CA_CERTIFICATE",
+  "RUST_LOG",
+];
 
 await mkdir(runsDir, { recursive: true });
 
@@ -71,7 +104,7 @@ async function createWorkflow(body) {
   if (runCodexExec) {
     const user = slug(String(body.user ?? "user"));
     const codexHome = join(codexHomeRoot, user);
-    await mkdir(codexHome, { recursive: true });
+    await prepareCodexHome(codexHome);
     if (!(await fileExists(join(codexHome, "auth.json")))) {
       throw statusError(409, `Codex login is missing for ${user}. Ask them to open Settings > ChatGPT and connect their own ChatGPT/Codex account.`);
     }
@@ -119,7 +152,7 @@ async function createWorkflow(body) {
     const child = spawn(codexBin, codexArgs, {
       cwd: clone.status === 0 ? repoDir : runDir,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, CODEX_HOME: codexHome },
+      env: codexChildEnv({ codexHome, user }),
     });
     child.stdout.pipe((await import("node:fs")).createWriteStream(join(runDir, "codex.stdout.jsonl")));
     child.stderr.pipe((await import("node:fs")).createWriteStream(join(runDir, "codex.stderr.log")));
@@ -559,6 +592,49 @@ function statusError(status, message) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+async function prepareCodexHome(codexHome) {
+  await mkdir(codexHome, { recursive: true, mode: 0o700 });
+  await chmod(codexHome, 0o700).catch(() => undefined);
+  await ensureFileCredentialStore(codexHome);
+}
+
+async function ensureFileCredentialStore(codexHome) {
+  const configPath = join(codexHome, "config.toml");
+  const current = await readFile(configPath, "utf8").catch((error) => {
+    if (error?.code === "ENOENT") return "";
+    throw error;
+  });
+  const next = withForcedFileCredentialStore(current);
+  if (next !== current) {
+    await writeFile(configPath, next, { mode: 0o600 });
+  }
+  await chmod(configPath, 0o600).catch(() => undefined);
+}
+
+function withForcedFileCredentialStore(contents) {
+  const credentialStorePattern = /^(?!\s*#)\s*cli_auth_credentials_store\s*=.*$/m;
+  if (credentialStorePattern.test(contents)) {
+    return contents.replace(credentialStorePattern, codexCredentialStoreSetting);
+  }
+  return contents.trim() ? `${codexCredentialStoreSetting}\n\n${contents}` : `${codexCredentialStoreSetting}\n`;
+}
+
+function codexChildEnv({ codexHome, user }) {
+  const env = {};
+  for (const key of codexChildEnvAllowlist) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+
+  env.CODEX_HOME = codexHome;
+  env.CODEX_SQLITE_HOME = codexHome;
+  env.HOME = codexHome;
+  env.USER = user;
+  env.LOGNAME = user;
+
+  return env;
 }
 
 async function fileExists(path) {

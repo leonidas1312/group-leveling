@@ -54,4 +54,3 @@ npm run invite -- --host your-name
 - [Self-hosting guide](SELF_HOSTING.md): host setup, Tailscale mode, environment variables, persistence, auth, and verification.
 - [Invite guide](INVITE_GUIDE.md): teammate onboarding, ChatGPT/Codex connection, agent creation, and team test.
 - [Architecture](ARCHITECTURE.md): system design, diagrams, data flow, ownership boundaries, and repository map.
-- [Content assets](docs/assets/README.md): README screenshot, architecture image, launch visuals, and copy blocks.

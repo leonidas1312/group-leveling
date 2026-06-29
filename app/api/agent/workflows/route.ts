@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { startCodexWorkflow } from "@/lib/codex";
 import { getGiteaStatus, giteaProjectExists } from "@/lib/gitea";
+import { readSoloLevelingState } from "@/lib/solo-leveling-store";
 import type { Project } from "@/lib/demo-data";
 
 export async function POST(request: Request) {
@@ -11,11 +12,17 @@ export async function POST(request: Request) {
       agentHandle?: string;
       agentName?: string;
       agentInstructions?: string;
-      user?: string;
     };
-    if (!body.prompt || !body.project) {
-      return NextResponse.json({ error: "prompt and project are required" }, { status: 400 });
+    if (!body.prompt || !body.project || !body.agentHandle) {
+      return NextResponse.json({ error: "prompt, project and agentHandle are required" }, { status: 400 });
     }
+    const agentHandle = body.agentHandle.replace(/^@+/, "");
+    const state = await readSoloLevelingState();
+    const agent = state.agents.find((candidate) => candidate.handle === agentHandle);
+    if (!agent) {
+      return NextResponse.json({ error: `Agent ${agentHandle} was not found.` }, { status: 404 });
+    }
+
     const giteaStatus = await getGiteaStatus();
     if (!giteaStatus.online) {
       return NextResponse.json({ error: giteaStatus.message }, { status: 503 });
@@ -30,10 +37,10 @@ export async function POST(request: Request) {
     const workflow = await startCodexWorkflow({
       prompt: body.prompt,
       project: body.project,
-      agentHandle: body.agentHandle,
-      agentName: body.agentName,
+      agentHandle: agent.handle,
+      agentName: agent.name,
       agentInstructions: body.agentInstructions,
-      user: body.user,
+      user: agent.ownerUsername,
     });
     return NextResponse.json({ workflow });
   } catch (error) {

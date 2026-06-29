@@ -1,7 +1,6 @@
-import { mkdir } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { NextResponse } from "next/server";
-import { getCodexBin, getCodexHome, getCodexUserStatus, slugUser } from "@/lib/codex-auth";
+import { codexChildEnv, getCodexBin, prepareCodexHome, slugUser } from "@/lib/codex-auth";
 
 type PublicSession = {
   id: string;
@@ -35,8 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json(publicSession(existing));
     }
 
-    const status = await getCodexUserStatus(user);
-    await mkdir(status.codexHome, { recursive: true });
+    const codexHome = await prepareCodexHome(user);
 
     const id = `connect-${user}-${Date.now()}`;
     const session: InternalSession = {
@@ -53,7 +51,7 @@ export async function POST(request: Request) {
 
     const child = spawn(getCodexBin(), ["login", "--device-auth"], {
       cwd: process.cwd(),
-      env: { ...process.env, CODEX_HOME: getCodexHome(user) },
+      env: codexChildEnv({ codexHome, user }),
       stdio: ["ignore", "pipe", "pipe"],
     });
     session.child = child;
