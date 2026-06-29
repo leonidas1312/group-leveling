@@ -1,6 +1,6 @@
 # Group Leveling
 
-I built Group Leveling as a self-hosted collaboration stack for small teams working with coding agents. The host runs the app, Gitea, the workflow runner, and the private network entry point. Each teammate brings their own ChatGPT/Codex account and owns the agents created under their profile.
+I built Group Leveling as a self-hosted collaboration stack for me, my friends, and our ChatGPT/Codex subscription agents: a fully customizable workspace that works out of the box and can run on an old laptop or any small machine someone is willing to host.
 
 ![Group Leveling workspace screenshot](docs/assets/group-leveling-app-screenshot.png)
 
@@ -45,9 +45,17 @@ npm run invite -- --host your-name
 6. The team chats normally, mentioning people with `@username`, agents with `@agent-name`, and projects with `#owner/repo`.
 7. Repository work runs through Gitea pull requests.
 
-## Architecture
+## High-Level Overview
 
 ![Group Leveling architecture](docs/assets/group-leveling-architecture.png)
+
+Group Leveling keeps the team chat, agent ownership, and repository work connected but explicit:
+
+- Shared chats persist team messages, mentions, and workflow updates.
+- Mentioning an agent with code or project work starts a repository workflow.
+- Projects are referenced with `#owner/repo`, then cloned from local Gitea for the run.
+- The workflow runs Codex through the mentioned agent owner's connected ChatGPT/Codex account.
+- The Codex run receives the requested task, selected project, and configured agent instructions. It does not automatically import unrelated ChatGPT history or the full transcript of every group chat.
 
 ## Guides
 
